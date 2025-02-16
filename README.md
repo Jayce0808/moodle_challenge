@@ -7,7 +7,7 @@
 3. ~~Handle different options correctly~~ 
 4. ~~Read csv~~
 5. ~~Make a user class~~
-6. Validate email 
+6. ~~Validate email~~
 7. Create DB programatically (implement --create_table option)
 8. Implement --dry_run option  
 9. Insert records 
@@ -37,5 +37,11 @@ Run `php user_upload.php`
 
 # Future Improvements
 - Logging Errors 
-- GUI for users to upload docs  
+- GUI for users to upload docs
+- Only allow certain non-alphabet characters in names such as - and '
 
+# Assumptions
+- CSV will always be in the order name, surname, email
+- Names & surnames can have non-alphabet characters in them (e.g. Sam!! and O'connor are valid)
+- All fields should be trimmed as white spaces shouldn't be allowed 
+- Names such as o'connor should be converted into O'connor and not O'Connor

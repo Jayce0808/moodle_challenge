@@ -3,7 +3,7 @@
 include "./models/User.php";
 include "./exceptions/InvalidUserException.php";
 
-function main() {
+function main(): void {
     try {
         $options = getopt("u:p:h", ["create_table", "dry_run", "file:", "help"]);
         if (isset($options["help"])) {
@@ -24,11 +24,13 @@ function main() {
     } 
 }
 
-function readCSV($filename) {
+function readCSV($filename): array {
     $validRows = [];
     $stream = fopen($filename, "r");
+    fgetcsv($stream); //skip header
     while ($row = fgetcsv($stream)) {
         try {
+            $row = array_map("trim", $row); //trim all what space from each user field
             $user = new User($row[0], $row[1], $row[2]);
             $validRows[] = $user;
         } catch (InvalidUserException $e) {
@@ -40,7 +42,7 @@ function readCSV($filename) {
     return $validRows;
 }
 
-function insertUsers() {
+function insertUsers($users) {
 
 }
 
