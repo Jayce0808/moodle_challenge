@@ -6,7 +6,7 @@
 2. ~~Implement --help option~~ 
 3. ~~Handle different options correctly~~ 
 4. ~~Read csv~~
-5. Make a user class
+5. ~~Make a user class~~
 6. Validate email 
 7. Create DB programatically (implement --create_table option)
 8. Implement --dry_run option  
@@ -24,3 +24,18 @@ Run `php user_upload.php`
  -p – PostgreSQL password.
  -h – PostgreSQL host.
  --help – which will output the above list of directives with details.
+
+# Project Strucure
+```
+├───exceptions
+    ├───InvalidUserException.php
+├───models
+    ├───User.php 
+├───user_upload.php
+├───users.csv
+```
+
+# Future Improvements
+- Logging Errors 
+- GUI for users to upload docs  
+

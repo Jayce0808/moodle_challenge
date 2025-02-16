@@ -1,5 +1,8 @@
 <?php 
 
+include "./models/User.php";
+include "./exceptions/InvalidUserException.php";
+
 function main() {
     try {
         $options = getopt("u:p:h", ["create_table", "dry_run", "file:", "help"]);
@@ -26,18 +29,15 @@ function readCSV($filename) {
     $stream = fopen($filename, "r");
     while ($row = fgetcsv($stream)) {
         try {
-            //TODO: make a class to handle user data
-            validateRow($row); //throw exception if row is invalid 
-            $validRows[] = $row;
-        } catch (Exception $e) {//TODO: create custom exception to use here instead
+            $user = new User($row[0], $row[1], $row[2]);
+            $validRows[] = $user;
+        } catch (InvalidUserException $e) {
+            //we only want to catch exceptions thrown from an invalid row here, 
+            //other exceptions should still be caught in the main function as they are unintentional 
             echo $e->getMessage();
         }
     }
     return $validRows;
-}
-
-function validateRow() {
-    return true;
 }
 
 function insertUsers() {
