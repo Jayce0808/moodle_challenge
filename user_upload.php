@@ -13,22 +13,34 @@ function main() {
             throw new Exception("A file must be provided!");
         } else {
             validateFile($options["file"]); //throws exception if invalid
-
+            $users = readCSV($options["file"]);
+            insertUsers($users);
         }
     } catch (Exception $e) {
         echo $e->getMessage();
     } 
 }
 
-function readCSV() {
-
+function readCSV($filename) {
+    $validRows = [];
+    $stream = fopen($filename, "r");
+    while ($row = fgetcsv($stream)) {
+        try {
+            //TODO: make a class to handle user data
+            validateRow($row); //throw exception if row is invalid 
+            $validRows[] = $row;
+        } catch (Exception $e) {//TODO: create custom exception to use here instead
+            echo $e->getMessage();
+        }
+    }
+    return $validRows;
 }
 
 function validateRow() {
-
+    return true;
 }
 
-function insertUser() {
+function insertUsers() {
 
 }
 

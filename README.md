@@ -4,13 +4,14 @@
 
 1. ~~Run from command line with options~~
 2. ~~Implement --help option~~ 
-3. Handle different options correctly 
-4. Read csv
-5. Validate email 
-6. Create DB programatically (implement --create_table option)
-7. Implement --dry_run option  
-8. Insert records 
-9. Implement testing? 
+3. ~~Handle different options correctly~~ 
+4. ~~Read csv~~
+5. Make a user class
+6. Validate email 
+7. Create DB programatically (implement --create_table option)
+8. Implement --dry_run option  
+9. Insert records 
+10. Implement testing? 
 
 # Run Instructions
 Run `php user_upload.php`
