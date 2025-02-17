@@ -3,24 +3,28 @@
 include "./models/User.php";
 include "./exceptions/InvalidUserException.php";
 
+// var_dump(phpinfo());
+// die;
 function main(): void {
     try {
-        $options = getopt("u:p:h", ["create_table", "dry_run", "file:", "help"]);
+        $options = getopt("u:p:h:", ["create_table", "dry_run", "file:", "help"]);
         if (isset($options["help"])) {
             displayCommandLineDirectives();
-        }
-        else if (isset($options["create_table"])) {
-            buildUsersTable();
-        }
-        else if (!isset($options["file"])) {
-            throw new Exception("A file must be provided!");
         } else {
-            validateFile($options["file"]); //throws exception if invalid
-            $users = readCSV($options["file"]);
-            insertUsers($users);
-        }
+            $conn = connectToDB($options);
+            if (isset($options["create_table"])) { //do not take any further action if create table is specified 
+                buildUsersTable();
+            } else if (!isset($options["file"])) {
+                throw new Exception("A file must be provided!");
+            } else {
+                validateFile($options["file"]); //throws exception if invalid
+                $users = readCSV($options["file"]);
+                insertUsers($users);
+            }
+        } 
     } catch (Exception $e) {
-        echo $e->getMessage();
+        var_dump($e);
+        echo $e->getMessage() . "\n"; 
     } 
 }
 
@@ -36,7 +40,7 @@ function readCSV($filename): array {
         } catch (InvalidUserException $e) {
             //we only want to catch exceptions thrown from an invalid row here, 
             //other exceptions should still be caught in the main function as they are unintentional 
-            echo $e->getMessage();
+            echo $e->getMessage() . "\n";
         }
     }
     return $validRows;
@@ -50,8 +54,31 @@ function buildUsersTable() {
 
 }
 
-function connectToDB() {
+/**
+ * Returns a PDO is 
+ * @param mixed $params
+ * @throws \Exception
+ * @return false|PDO
+ */
+function connectToDB($params) {
+    if (!isset($params["dry_run"])) {
+        if (!isset($params["u"])) {
+            throw new Exception("Error: PostgreSQL username must be provided.");
+        } else if (!isset($params["p"])) {
+            throw new Exception("Error: PostgreSQL password must be provided.");
+        } else if (!isset($params["h"])) {
+            throw new Exception("Error: PostgreSQL host must be provided.");
+        }
+        $hostname = $params["h"];
+        $username = $params["u"];
+        $password = $params["p"];
+        // $conn = new PDO("pgsql:host=$hostname;dbname=template1", $username, $password);
+        $conn = new PDO("pgsql:host=$hostname;dbname=template1", $username, $password);
 
+        return $conn;
+    } else {
+        return false;
+    }
 }
 
 function validateFile($filename) {

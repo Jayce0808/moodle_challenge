@@ -45,3 +45,5 @@ Run `php user_upload.php`
 - Names & surnames can have non-alphabet characters in them (e.g. Sam!! and O'connor are valid)
 - All fields should be trimmed as white spaces shouldn't be allowed 
 - Names such as o'connor should be converted into O'connor and not O'Connor
+- The input file will not contain enough users to require inserting multiple users in one query 
+- The DB is named 'users_db' & the table is called 'users'
