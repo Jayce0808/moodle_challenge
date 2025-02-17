@@ -73,7 +73,7 @@ class User {
      */
     private function validateEmail(): bool {
         if (!filter_var($this->getEmail(), FILTER_VALIDATE_EMAIL)) {
-            throw new InvalidUserException("Error: The provided email " . $this->getEmail() . " is not valid.\n");
+            throw new InvalidUserException("Error: The provided email " . $this->getEmail() . " is not valid.");
         } 
         return true;
     }
@@ -94,5 +94,9 @@ class User {
      */
     private function formatEmail($email): string {
         return strtolower($email);
+    }
+
+    public function print(): string {
+        return $this->getName() . " " . $this->getSurname();
     }
 }

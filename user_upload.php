@@ -3,26 +3,27 @@
 include "./models/User.php";
 include "./exceptions/InvalidUserException.php";
 
-define("DB_NAME", "moodle_test_db");
-
-// var_dump(phpinfo());
-// die;
 function main(): void {
     try {
-        $options = getopt("u:p:h:", ["create_table", "dry_run", "file:", "help"]);
+        $options = getopt("u:p:h:", ["create_table", "dry_run", "file:", "help", "db:"]);
+        $dbName = isset($options["db"]) ? $options["db"] : "postgres";
         if (isset($options["help"])) {
             displayCommandLineDirectives();
         } else {
-            $conn = connectToDB($options);
+            $conn = connectToDB($options, $dbName);
             if (isset($options["create_table"])) { //do not take any further action if create table is specified 
                 buildUsersTable($conn);
             } else if (!isset($options["file"])) {
-                throw new Exception("A file must be provided!");
+                throw new Exception("Error: A file must be provided!");
             } else {
                 validateFile($options["file"]); //throws exception if invalid
                 $users = readCSV($options["file"]);
                 if (!isset($options['dry_run'])) {
-                    insertUsers($conn, $users);                    
+                    if (tableExists($conn, "users")) {
+                        insertUsers($conn, $users);                    
+                    } else {
+                        throw new Exception("Error: There is no users table insert data into.");
+                    }
                 }
             }
         } 
@@ -54,38 +55,35 @@ function insertUsers($conn, $users) {
     $stmt = $conn->prepare($sql);
 
     try {
-        $conn->beginTransaction();
         foreach ($users as $user) {
             try {
                 $res = $stmt->execute([$user->getName(), $user->getSurname(), $user->getEmail()]);
+                if ($res) {
+                    echo $user->print() . " inserted successfully!\n";
+                }
             } catch (PDOException $e) {
                 // Check if the error is a duplicate key violation
                 if ($e->getCode() == '23505') {  // PostgreSQL unique violation
                     echo "Duplicate entry error: Email '" . $user->getEmail() . "' already exists.\n";
-                    $conn->rollback();
-                    continue; //TODO: fix bug where the code stops inserting users after finding a duplicate email
                 } else {
                     var_dump($e);
                     throw $e;  // Re-throw other exceptions
                 }
-                // $conn->rollback();
-                // return;  // Exit the function after rollback
             }
         }
-        $conn->commit();
     } catch (Exception $e) {
         $conn->rollback();
         throw $e;
     }
 }
 
-function buildDB($conn) {
+function buildDB($conn, $dbName) {
     try {
         // Create the new database
-        $sql = "CREATE DATABASE " . DB_NAME;
+        $sql = "CREATE DATABASE $dbName";
         $conn->exec($sql);
 
-        echo "Database '" . DB_NAME . "' created successfully.\n";
+        echo "Database '$dbName' created successfully.\n";
     } catch (PDOException $e) {
         echo "Error: " . $e->getMessage() . "\n";
     }
@@ -93,16 +91,20 @@ function buildDB($conn) {
 
 function buildUsersTable($conn) {
 
-    $proceed = readline("Warning, this will delete any pre existing 'users' data, do you wish to proceed? (Y/n)"); //get the user to confirm they want to drop the table
-    if ($proceed === "Y") {
-        $sql = "DROP TABLE users;";
-        $conn->exec($sql);
-        $sql = "CREATE TABLE users(
-            email VARCHAR(255) UNIQUE PRIMARY KEY,
-            name VARCHAR(50) NOT NULL,
-            surname VARCHAR(50) NOT NULL);";
-        $conn->exec($sql);
+    if (tableExists($conn, "users")) {
+        $proceed = readline("Warning, this will delete the pre existing 'users' table, do you wish to proceed? (Y/n)"); //get the user to confirm they want to drop the table
+        if ($proceed === "Y") {
+            $sql = "DROP TABLE users;";
+            $conn->exec($sql);
+        } else {
+            return;
+        }
     }
+    $sql = "CREATE TABLE users(
+        email VARCHAR(255) UNIQUE PRIMARY KEY,
+        name VARCHAR(50) NOT NULL,
+        surname VARCHAR(50) NOT NULL);";
+    $conn->exec($sql);
 }
 
 /**
@@ -111,7 +113,7 @@ function buildUsersTable($conn) {
  * @throws \Exception
  * @return false|PDO
  */
-function connectToDB($params) {
+function connectToDB($params, $dbName) {
     if (!isset($params["dry_run"])) { // params are not required for a dry run
         if (!isset($params["u"])) {
             throw new Exception("Error: PostgreSQL username must be provided.");
@@ -125,11 +127,11 @@ function connectToDB($params) {
         $password = $params["p"];
         //check if the DB with DB_NAME already exists, if not create it first before connecting to it 
         $initConn = new PDO("pgsql:host=$hostname", $username, $password);
-        $dbExists = databaseExists($initConn, DB_NAME);
+        $dbExists = databaseExists($initConn, $dbName);
         if (!$dbExists) {
-            buildDB($initConn);
+            buildDB($initConn, $dbName);
         }
-        $conn = new PDO("pgsql:host=$hostname;dbname=" . DB_NAME, $username, $password);
+        $conn = new PDO("pgsql:host=$hostname;dbname=$dbName", $username, $password);
         $initConn = null; // close conn
         return $conn;
     } else {
@@ -151,7 +153,8 @@ function displayCommandLineDirectives() {
     echo "Usage: user_upload.php [options] [--] [args...]\n";
     echo "--file [csv file name] - this is the name of the CSV to be parsed.\n";
     echo "--create_table - this will cause the PostgreSQL users table to be built (and no further action will be taken).\n";
-    echo "--dry_run - this will be used with the --fi le directive in case we want to run the script but not insert into the database. All other functions will be executed, but the database won't be altered.\n";
+    echo "--dry_run - this will be used with the --file directive in case we want to run the script but not insert into the database. All other functions will be executed, but the database won't be altered.\n";
+    echo "--db [db name] - this is optional and will determine which DB the script updates. If the DB with this name does not exist, it will automatically be created, if left blank the default is the 'postgres' DB\n";
     echo "-u - PostgreSQL username.\n";
     echo "-p - PostgreSQL password.\n";
     echo "-h - PostgreSQL host.\n";
@@ -162,6 +165,13 @@ function databaseExists($conn, $dbName) {
     $stmt = $conn->prepare($sql);
     $stmt->execute([$dbName]);
     return (bool) $stmt->fetchColumn();  // Returns true if database exists, false otherwise
+}
+
+function tableExists($conn, $tableName) {
+    $sql = "SELECT 1 FROM pg_tables WHERE tablename = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([strtolower($tableName)]); //Returns true if table exists, false otherwise
+    return (bool) $stmt->fetchColumn();
 }
 
 main();

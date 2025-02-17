@@ -9,7 +9,7 @@
 5. ~~Make a user class~~
 6. ~~Validate email~~
 7. ~~Create DB programatically (implement --create_table option)~~
-8. Implement --dry_run option  
+8. ~~Implement --dry_run option~~
 9. ~~Insert records~~
 10. Bug Fixes
 
@@ -20,6 +20,7 @@ Run `php user_upload.php`
  --file [csv file name] – this is the name of the CSV to be parsed.
  --create_table – this will cause the PostgreSQL users table to be built (and no further action will be taken).
  --dry_run – this will be used with the --file directive in case we want to run the script but not insert into the database. All other functions will be executed, but the database won't be altered.
+ --db [db name] - this is optional and will determine which DB the script updates. If the DB with this name does not exist, it will automatically be created, if left blank the default is the 'postgres' DB;
  -u – PostgreSQL username.
  -p – PostgreSQL password.
  -h – PostgreSQL host.
@@ -37,7 +38,7 @@ Run `php user_upload.php`
 
 # Future Improvements
 - Logging Errors 
-- GUI for users to upload docs
+- GUI for users to upload csv
 - Only allow certain non-alphabet characters in names such as - and '
 - Implement automated testing
 
@@ -47,10 +48,10 @@ Run `php user_upload.php`
 - All fields should be trimmed as white spaces shouldn't be allowed 
 - Names such as o'connor should be converted into O'connor and not O'Connor
 - The input file will not contain enough users to require inserting multiple users in one query 
-- The DB is named 'moodle_test_db' & the table is called 'users'
 - If one of the emails in the csv is a duplicate, other correctly formatted users should still be inserted 
-- The DB will be created automatically if it does not already exist - this is just to make it easier to run this script, I do not think it would be a valid implementation in reality 
+- The default DB to use is 'postgres'
+- An additional --db option was include, it is okay to create a new DB using this paramater if it does not exist
 
 # Bugs
-- Unintuative error message when trying to insert records without table exists  
-- Scripts stops importing records when one duplicate email is found 
+- ~~Unintuative error message when trying to insert records without table exists~~ 
+- ~~Scripts stops importing records when one duplicate email is found~~ 
