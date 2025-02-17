@@ -3,6 +3,8 @@
 include "./models/User.php";
 include "./exceptions/InvalidUserException.php";
 
+define("DB_NAME", "moodle_test_db");
+
 // var_dump(phpinfo());
 // die;
 function main(): void {
@@ -13,17 +15,18 @@ function main(): void {
         } else {
             $conn = connectToDB($options);
             if (isset($options["create_table"])) { //do not take any further action if create table is specified 
-                buildUsersTable();
+                buildUsersTable($conn);
             } else if (!isset($options["file"])) {
                 throw new Exception("A file must be provided!");
             } else {
                 validateFile($options["file"]); //throws exception if invalid
                 $users = readCSV($options["file"]);
-                insertUsers($users);
+                if (!isset($options['dry_run'])) {
+                    insertUsers($conn, $users);                    
+                }
             }
         } 
     } catch (Exception $e) {
-        var_dump($e);
         echo $e->getMessage() . "\n"; 
     } 
 }
@@ -46,12 +49,60 @@ function readCSV($filename): array {
     return $validRows;
 }
 
-function insertUsers($users) {
+function insertUsers($conn, $users) {
+    $sql = "INSERT INTO users (name, surname, email) VALUES (?,?,?)";
+    $stmt = $conn->prepare($sql);
 
+    try {
+        $conn->beginTransaction();
+        foreach ($users as $user) {
+            try {
+                $res = $stmt->execute([$user->getName(), $user->getSurname(), $user->getEmail()]);
+            } catch (PDOException $e) {
+                // Check if the error is a duplicate key violation
+                if ($e->getCode() == '23505') {  // PostgreSQL unique violation
+                    echo "Duplicate entry error: Email '" . $user->getEmail() . "' already exists.\n";
+                    $conn->rollback();
+                    continue; //TODO: fix bug where the code stops inserting users after finding a duplicate email
+                } else {
+                    var_dump($e);
+                    throw $e;  // Re-throw other exceptions
+                }
+                // $conn->rollback();
+                // return;  // Exit the function after rollback
+            }
+        }
+        $conn->commit();
+    } catch (Exception $e) {
+        $conn->rollback();
+        throw $e;
+    }
 }
 
-function buildUsersTable() {
+function buildDB($conn) {
+    try {
+        // Create the new database
+        $sql = "CREATE DATABASE " . DB_NAME;
+        $conn->exec($sql);
 
+        echo "Database '" . DB_NAME . "' created successfully.\n";
+    } catch (PDOException $e) {
+        echo "Error: " . $e->getMessage() . "\n";
+    }
+}
+
+function buildUsersTable($conn) {
+
+    $proceed = readline("Warning, this will delete any pre existing 'users' data, do you wish to proceed? (Y/n)"); //get the user to confirm they want to drop the table
+    if ($proceed === "Y") {
+        $sql = "DROP TABLE users;";
+        $conn->exec($sql);
+        $sql = "CREATE TABLE users(
+            email VARCHAR(255) UNIQUE PRIMARY KEY,
+            name VARCHAR(50) NOT NULL,
+            surname VARCHAR(50) NOT NULL);";
+        $conn->exec($sql);
+    }
 }
 
 /**
@@ -61,7 +112,7 @@ function buildUsersTable() {
  * @return false|PDO
  */
 function connectToDB($params) {
-    if (!isset($params["dry_run"])) {
+    if (!isset($params["dry_run"])) { // params are not required for a dry run
         if (!isset($params["u"])) {
             throw new Exception("Error: PostgreSQL username must be provided.");
         } else if (!isset($params["p"])) {
@@ -72,9 +123,14 @@ function connectToDB($params) {
         $hostname = $params["h"];
         $username = $params["u"];
         $password = $params["p"];
-        // $conn = new PDO("pgsql:host=$hostname;dbname=template1", $username, $password);
-        $conn = new PDO("pgsql:host=$hostname;dbname=template1", $username, $password);
-
+        //check if the DB with DB_NAME already exists, if not create it first before connecting to it 
+        $initConn = new PDO("pgsql:host=$hostname", $username, $password);
+        $dbExists = databaseExists($initConn, DB_NAME);
+        if (!$dbExists) {
+            buildDB($initConn);
+        }
+        $conn = new PDO("pgsql:host=$hostname;dbname=" . DB_NAME, $username, $password);
+        $initConn = null; // close conn
         return $conn;
     } else {
         return false;
@@ -99,6 +155,13 @@ function displayCommandLineDirectives() {
     echo "-u - PostgreSQL username.\n";
     echo "-p - PostgreSQL password.\n";
     echo "-h - PostgreSQL host.\n";
+}
+
+function databaseExists($conn, $dbName) {
+    $sql = "SELECT 1 FROM pg_database WHERE datname = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([$dbName]);
+    return (bool) $stmt->fetchColumn();  // Returns true if database exists, false otherwise
 }
 
 main();
