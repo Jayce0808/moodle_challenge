@@ -1,30 +1,37 @@
 <?php 
+/**
+ * This script is responsible for managing a users DB table
+ * It has two process, creating the table with --create_table and processing the data in the csv provided with --file
+ * @version PHP8.3 
+ */
 
 include "./models/User.php";
 include "./exceptions/InvalidUserException.php";
+include "./utils/db_utils.php";
 
+/**
+ * The entry to this script, will read the command line directives and move to the appropriate function depending on the directives.
+ * If --help is listed, all other command line directives are ignored and the info is displayed to STDOUT 
+ * If --create_table is listed, create or recreate the users table 
+ * Other --file must be provided with a valid file 
+ * This file must contain a list of users which will be processed and inserted into the users DB 
+ * Any error are displayed to STDOUT   
+ * @return void
+ */
 function main(): void {
     try {
         $options = getopt("u:p:h:", ["create_table", "dry_run", "file:", "help", "db:"]);
-        $dbName = isset($options["db"]) ? $options["db"] : "postgres";
-        if (isset($options["help"])) {
-            displayCommandLineDirectives();
+        $dbName = isset($options["db"]) ? $options["db"] : "postgres"; //default db is 'postgres' unless another is provided
+        if (isset($options["help"]) || count($options) === 0) {
+            displayCommandLineDirectives(); //if help directive is provided or no directives are provided then we display the info and exit 
         } else {
-            $conn = connectToDB($options, $dbName);
+            $conn = setupDBConnection($options, $dbName);
             if (isset($options["create_table"])) { //do not take any further action if create table is specified 
                 buildUsersTable($conn);
-            } else if (!isset($options["file"])) {
+            } else if (!isset($options["file"])) { //if we are not creating a table then a file must be provided 
                 throw new Exception("Error: A file must be provided!");
             } else {
-                validateFile($options["file"]); //throws exception if invalid
-                $users = readCSV($options["file"]);
-                if (!isset($options['dry_run'])) {
-                    if (tableExists($conn, "users")) {
-                        insertUsers($conn, $users);                    
-                    } else {
-                        throw new Exception("Error: There is no users table insert data into.");
-                    }
-                }
+                processFile($conn, $options); //a file is provided and needs to be validated and processed 
             }
         } 
     } catch (Exception $e) {
@@ -32,6 +39,11 @@ function main(): void {
     } 
 }
 
+/**
+ * Reads the csv at $filename and creates a list of user objects, validating each user during the process and only inserting valid users 
+ * @param string $filename
+ * @return User[]
+ */
 function readCSV($filename): array {
     $validRows = [];
     $stream = fopen($filename, "r");
@@ -50,7 +62,13 @@ function readCSV($filename): array {
     return $validRows;
 }
 
-function insertUsers($conn, $users) {
+/**
+ * This will insert an array User objects into the 'users' table of the specified conn
+ * @param PDO $conn
+ * @param User[] $users
+ * @return void
+ */
+function insertUsers($conn, $users): void {
     $sql = "INSERT INTO users (name, surname, email) VALUES (?,?,?)";
     $stmt = $conn->prepare($sql);
 
@@ -77,19 +95,14 @@ function insertUsers($conn, $users) {
     }
 }
 
-function buildDB($conn, $dbName) {
-    try {
-        // Create the new database
-        $sql = "CREATE DATABASE $dbName";
-        $conn->exec($sql);
-
-        echo "Database '$dbName' created successfully.\n";
-    } catch (PDOException $e) {
-        echo "Error: " . $e->getMessage() . "\n";
-    }
-}
-
-function buildUsersTable($conn) {
+/**
+ * This will check if a users table already exists. If it does not then the table will be created
+ * with 3 fields; email, name and surname. 
+ * If it does, the user will be prompted with an option to delete the pre exisiting table before creating a new table. 
+ * @param PDO $conn
+ * @return void
+ */
+function buildUsersTable($conn): void {
 
     if (tableExists($conn, "users")) {
         $proceed = readline("Warning, this will delete the pre existing 'users' table, do you wish to proceed? (Y/n)"); //get the user to confirm they want to drop the table
@@ -108,12 +121,13 @@ function buildUsersTable($conn) {
 }
 
 /**
- * Returns a PDO is 
+ * Validates the required paramaters are provided within the command line directives, throws an exception if not and creates a PDO object if they are. 
  * @param mixed $params
+ * @param string $dbName
  * @throws \Exception
- * @return false|PDO
+ * @return bool|PDO
  */
-function connectToDB($params, $dbName) {
+function setupDBConnection($params, $dbName) {
     if (!isset($params["dry_run"])) { // params are not required for a dry run
         if (!isset($params["u"])) {
             throw new Exception("Error: PostgreSQL username must be provided.");
@@ -122,23 +136,22 @@ function connectToDB($params, $dbName) {
         } else if (!isset($params["h"])) {
             throw new Exception("Error: PostgreSQL host must be provided.");
         }
+
         $hostname = $params["h"];
         $username = $params["u"];
         $password = $params["p"];
-        //check if the DB with DB_NAME already exists, if not create it first before connecting to it 
-        $initConn = new PDO("pgsql:host=$hostname", $username, $password);
-        $dbExists = databaseExists($initConn, $dbName);
-        if (!$dbExists) {
-            buildDB($initConn, $dbName);
-        }
-        $conn = new PDO("pgsql:host=$hostname;dbname=$dbName", $username, $password);
-        $initConn = null; // close conn
-        return $conn;
+        return connectToDB($hostname, $username, $password, $dbName);
     } else {
         return false;
     }
 }
 
+/**
+ * Check if the provided $filename exists on the server and is a CSV. 
+ * @param mixed $filename
+ * @throws \Exception
+ * @return bool
+ */
 function validateFile($filename) {
     if (!file_exists($filename)) {
         throw new Exception("Error: File '$filename' not found.\n");
@@ -149,29 +162,40 @@ function validateFile($filename) {
     return true;
 }
 
-function displayCommandLineDirectives() {
+/**
+ * Echos the command line directives for this script 
+ * @return void
+ */
+function displayCommandLineDirectives(): void {
     echo "Usage: user_upload.php [options] [--] [args...]\n";
     echo "--file [csv file name] - this is the name of the CSV to be parsed.\n";
     echo "--create_table - this will cause the PostgreSQL users table to be built (and no further action will be taken).\n";
     echo "--dry_run - this will be used with the --file directive in case we want to run the script but not insert into the database. All other functions will be executed, but the database won't be altered.\n";
-    echo "--db [db name] - this is optional and will determine which DB the script updates. If the DB with this name does not exist, it will automatically be created, if left blank the default is the 'postgres' DB\n";
+    echo "--db [db name] - this is optional and will determine which DB the script updates. If the DB with this name does not exist, it will automatically be created, if left blank the default is the 'postgres' DB.\n";
     echo "-u - PostgreSQL username.\n";
     echo "-p - PostgreSQL password.\n";
     echo "-h - PostgreSQL host.\n";
 }
 
-function databaseExists($conn, $dbName) {
-    $sql = "SELECT 1 FROM pg_database WHERE datname = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->execute([$dbName]);
-    return (bool) $stmt->fetchColumn();  // Returns true if database exists, false otherwise
-}
-
-function tableExists($conn, $tableName) {
-    $sql = "SELECT 1 FROM pg_tables WHERE tablename = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->execute([strtolower($tableName)]); //Returns true if table exists, false otherwise
-    return (bool) $stmt->fetchColumn();
+/**
+ * Checks if the file is valid and reads the data from the csv. 
+ * If a dry_run is not specified in the options then the data is inserted into the users table 
+ * Throws an exception if there is no users table. 
+ * @param PDO $conn
+ * @param mixed $options
+ * @throws \Exception
+ * @return void
+ */
+function processFile($conn, $options): void {
+    validateFile($options["file"]); //throws exception if invalid
+    $users = readCSV($options["file"]);
+    if (!isset($options['dry_run'])) {
+        if (tableExists($conn, "users")) {
+            insertUsers($conn, $users);                    
+        } else {
+            throw new Exception("Error: There is no users table to insert data into.");
+        }
+    }
 }
 
 main();
