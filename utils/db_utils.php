@@ -11,7 +11,7 @@
  * @param string $dbName
  * @return bool
  */
-function databaseExists($conn, $dbName) {
+function databaseExists($conn, $dbName): bool {
     try {
         $sql = "SELECT 1 FROM pg_catalog.pg_database WHERE datname = ?";
         $stmt = $conn->prepare($sql);
@@ -28,8 +28,8 @@ function databaseExists($conn, $dbName) {
  * @param string $tableName
  * @return bool
  */
-function tableExists($conn, $tableName) {
-    $sql = "SELECT 1 FROM information_schema.tables WHERE table_name = ? AND table_schema = 'public'";
+function tableExists($conn, $tableName): bool {
+    $sql = "SELECT 1 FROM information_schema.tables WHERE table_name = ? AND table_schema = 'public'"; //information_scheme can have multiple entries so specify table_schema as public for desired result
     $stmt = $conn->prepare($sql);
     $stmt->execute([strtolower($tableName)]);
     return (bool) $stmt->fetchColumn();
@@ -41,7 +41,7 @@ function tableExists($conn, $tableName) {
  * @param string $dbName
  * @return void
  */
-function buildDB($conn, $dbName) {
+function buildDB($conn, $dbName): void {
     try {
         //sanitise database name (PostgreSQL requires valid identifiers)
         $dbName = preg_replace('/[^a-zA-Z0-9_]/', '', $dbName);
@@ -65,7 +65,7 @@ function buildDB($conn, $dbName) {
  * @param string $dbName
  * @return PDO|null
  */
-function connectToDB($hostName, $userName, $password, $dbName) {
+function connectToDB($hostName, $userName, $password, $dbName): PDO|null {
     try {
         // Connect to default database (postgres)
         $initConn = new PDO("pgsql:host=$hostName;dbname=postgres", $userName, $password, [
