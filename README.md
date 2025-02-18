@@ -1,6 +1,9 @@
 # moodle_challenge
 
-## Required libraries
+## Task Description 
+Create a command line executable PHP script, which accepts a CSV file as input and processes the CSV file (according to the command line directives and assumptions covered later in this document). The parsed file data is to be inserted into a PostgreSQL database. A CSV file containing test data is provided as part of this task, your script must be able to process that file appropriately.
+
+## Required Libraries
 php8.3
 pdo_pgsql
 pgsql
