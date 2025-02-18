@@ -6,11 +6,12 @@ pdo_pgsql
 pgsql
 
 ## Run Instructions
+```
 Ensure all required libraries are installed
 To create a new users table or wipe the current users table run `php user_upload.php -u [username] -p [password] -h [host] --create_table`
 To create insert users into the table run `php user_upload.php -u [username] -p [password] -h [host] --file [file name]`
 To process the users but not insert them into the DB run `php user_upload.php -u [username] -p [password] -h [host] --file [file name] --dry_run`
-
+```
 
 ## Command Line Directives 
 ```
@@ -30,6 +31,8 @@ To process the users but not insert them into the DB run `php user_upload.php -u
     ├───InvalidUserException.php
 ├───models
     ├───User.php 
+utils
+    db_utils.php 
 ├───user_upload.php
 ├───users.csv
 ```
