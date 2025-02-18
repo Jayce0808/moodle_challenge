@@ -34,8 +34,8 @@ To process the users but not insert them into the DB run `php user_upload.php -u
     ├───InvalidUserException.php
 ├───models
     ├───User.php 
-utils
-    db_utils.php 
+├───utils
+    ├───db_utils.php 
 ├───user_upload.php
 ├───users.csv
 ```
