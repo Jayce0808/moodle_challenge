@@ -4,17 +4,16 @@
 Create a command line executable PHP script, which accepts a CSV file as input and processes the CSV file (according to the command line directives and assumptions covered later in this document). The parsed file data is to be inserted into a PostgreSQL database. A CSV file containing test data is provided as part of this task, your script must be able to process that file appropriately.
 
 ## Required Libraries
-php8.3
-pdo_pgsql
-pgsql
+- php8.3
+- pdo_pgsql
+- pgsql
 
 ## Run Instructions
-```
-Ensure all required libraries are installed
-To create a new users table or wipe the current users table run `php user_upload.php -u [username] -p [password] -h [host] --create_table`
-To create insert users into the table run `php user_upload.php -u [username] -p [password] -h [host] --file [file name]`
-To process the users but not insert them into the DB run `php user_upload.php -u [username] -p [password] -h [host] --file [file name] --dry_run`
-```
+1. Ensure all required libraries are installed
+2. To create a new users table or wipe the current users table run `php user_upload.php -u [username] -p [password] -h [host] --create_table`
+3. To create insert users into the table run `php user_upload.php -u [username] -p [password] -h [host] --file [file name]`
+4. To process the users but not insert them into the DB run `php user_upload.php -u [username] -p [password] -h [host] --file [file name] --dry_run`
+5. To do the above in a custom DB run `php user_upload.php -u [username] -p [password] -h [host] --create_table --db [db name]` & `php user_upload.php -u [username] -p [password] -h [host] --file [file name] --db [db name]`
 
 ## Command Line Directives 
 ```
@@ -57,6 +56,7 @@ To process the users but not insert them into the DB run `php user_upload.php -u
 - The default DB to use is 'postgres'
 - An additional --db option was included, it is okay to create a new DB using this paramater if it does not exist
 - The provided user credentials have permission to create new tables and DBs 
+- Creating the users table if it already exists will drop the old table first
 
 ## Bugs
 - ~~Unintuative error message when trying to insert records without table exists~~ 
@@ -73,4 +73,4 @@ To process the users but not insert them into the DB run `php user_upload.php -u
 7. ~~Create DB programatically (implement --create_table option)~~
 8. ~~Implement --dry_run option~~
 9. ~~Insert records~~
-10. Bug Fixes
+10. ~~Bug Fixes~~

@@ -26,6 +26,9 @@ function main(): void {
             displayCommandLineDirectives(); //if help directive is provided or no directives are provided then we display the info and exit 
         } else {
             $conn = setupDBConnection($options, $dbName);
+            if ($conn === null) {
+                exit; //an error was displayed when the connection failed so end here 
+            }
             if (isset($options["create_table"])) { //do not take any further action if create table is specified 
                 buildUsersTable($conn);
             } else if (!isset($options["file"])) { //if we are not creating a table then a file must be provided 
@@ -59,6 +62,7 @@ function readCSV($filename): array {
             echo $e->getMessage() . "\n";
         }
     }
+    fclose($stream);
     return $validRows;
 }
 
@@ -78,10 +82,12 @@ function insertUsers($conn, $users): void {
                 $res = $stmt->execute([$user->getName(), $user->getSurname(), $user->getEmail()]);
                 if ($res) {
                     echo $user->print() . " inserted successfully!\n";
+                } else {
+                    echo "Failed to insert: " . $user->print() . "\n";
                 }
             } catch (PDOException $e) {
                 // Check if the error is a duplicate key violation
-                if ($e->getCode() == '23505') {  // PostgreSQL unique violation
+                if ($e->getCode() === '23505') {  // PostgreSQL unique violation
                     echo "Duplicate entry error: Email '" . $user->getEmail() . "' already exists.\n";
                 } else {
                     var_dump($e);
@@ -127,7 +133,7 @@ function buildUsersTable($conn): void {
  * @throws \Exception
  * @return bool|PDO
  */
-function setupDBConnection($params, $dbName) {
+function setupDBConnection($params, $dbName): false|PDO|null {
     if (!isset($params["dry_run"])) { // params are not required for a dry run
         if (!isset($params["u"])) {
             throw new Exception("Error: PostgreSQL username must be provided.");
@@ -150,16 +156,15 @@ function setupDBConnection($params, $dbName) {
  * Check if the provided $filename exists on the server and is a CSV. 
  * @param mixed $filename
  * @throws \Exception
- * @return bool
+ * @return void
  */
-function validateFile($filename) {
+function validateFile($filename): void {
     if (!file_exists($filename)) {
         throw new Exception("Error: File '$filename' not found.\n");
     } 
     if (strtolower(pathinfo($filename, PATHINFO_EXTENSION)) !== 'csv') {
         throw new Exception("Error: The provided file '$filename' is not a CSV.\n");
     }
-    return true;
 }
 
 /**
@@ -171,7 +176,7 @@ function displayCommandLineDirectives(): void {
     echo "--file [csv file name] - this is the name of the CSV to be parsed.\n";
     echo "--create_table - this will cause the PostgreSQL users table to be built (and no further action will be taken).\n";
     echo "--dry_run - this will be used with the --file directive in case we want to run the script but not insert into the database. All other functions will be executed, but the database won't be altered.\n";
-    echo "--db [db name] - this is optional and will determine which DB the script updates. If the DB with this name does not exist, it will automatically be created, if left blank the default is the 'postgres' DB.\n";
+    echo "--db [db name] - this is optional and will determine which DB the script updates. If the DB with this name does not exist, it will automatically be created (default: 'postgres'\n";
     echo "-u - PostgreSQL username.\n";
     echo "-p - PostgreSQL password.\n";
     echo "-h - PostgreSQL host.\n";
@@ -193,7 +198,7 @@ function processFile($conn, $options): void {
         if (tableExists($conn, "users")) {
             insertUsers($conn, $users);                    
         } else {
-            throw new Exception("Error: There is no users table to insert data into.");
+            throw new Exception("Error: The users table does not exist. Use --create_table to create it.");
         }
     }
 }
